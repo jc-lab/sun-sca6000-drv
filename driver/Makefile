@@ -59,8 +59,8 @@ CFLAGS += -std=gnu99
 
 DRV_NAME	= mca
 MCACTL_NAME	= mcactl
-KERNEL_VER	= `uname -r`
-BIN_DIR		= /opt/sun/sca6000/bin
+KERNEL_VER	?= `uname -r`
+BIN_DIR		= $(DESTDIR)/opt/sun/sca6000/bin
 DRV_DIR		= drv
 
 # Use this to add additional include dirs to kernel module builds

@@ -54,9 +54,9 @@ CFLAGS += -Wno-unknown-pragmas
 CFLAGS += -Wno-unused
 
 DRV_NAME	= scaf
-KERNEL_VER	= `uname -r`
+KERNEL_VER	?= `uname -r`
 
-BIN_DIR		= /opt/sun/sca6000/bin
+BIN_DIR		= $(DESTDIR)/opt/sun/sca6000/bin
 DRIVER_DIR	= drv
 
 INCLUDE := /lib/modules/$(KERNEL_VER)/build/
