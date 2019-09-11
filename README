@@ -1,0 +1,44 @@
+#
+# Copyright 2006 Sun Microsystems, Inc.  All rights reserved.
+# Use is subject to license terms.
+#
+#ident	"@(#)README	1.3	06/08/24 SMI"
+=======================================================
+Sun Crypto Accelerator 6000 Driver/Kernel Module Source
+=======================================================
+
+The source files distributed here will allow you to build the Sun Crypto
+Accelerator 6000 drivers and associated kernel modules.  The most common
+scenario for using these source files to build drivers is that you are
+running an updated or patched kernel that is a different version than the
+kernel the drivers in the sun-sca6000-1.1-1.<ARCH>.rpm were built against.
+If this is the case, the drivers packaged in the RPM will not load correctly.
+Building and installing drivers built from this source tar file will
+correct this problem.  The following are requirements for building and
+using the drivers:
+
+1. You must be running a 2.6 Linux kernel.
+2. You must have the Sun Crypto Accelerator 6000 RPMs installed on
+   your system.
+
+Steps to build the drivers:
+
+1. Untar the driver source package into a directory that you have access to
+   (preferably as a non-root user).
+	$ tar xvfz sun-sca6000drvsrc-1.1.tar.gz
+   This will create a directory called "sun-sca6000drvsrc-1.1" which
+   contains all the source files and Makefiles.
+
+2. Change directories to sun-sca6000drvsrc-1.1
+	$ cd sun-sca6000drvsrc-1.1
+
+3. Run "make"
+
+4. Become root on the system and run "make install"
+
+After step 4, the drivers will be placed in /opt/sun/sca6000/bin/drv, right
+next to the drivers that were packaged with the original RPMs.  The
+mca_load, mca_unload, scaf_load and scaf_unload, all called by
+/etc/init.d/sca, use uname -r to detect the correct driver filename to load
+and will pick up your new installed drivers when you do "/etc/init.d/sca
+start"
