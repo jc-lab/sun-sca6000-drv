@@ -32,7 +32,7 @@
 #
 #ident	"@(#)Makefile.top	1.1	06/08/18 SMI"
 
-SUB_DIRS	= driver framework
+SUB_DIRS	= framework driver
 TOP		= `pwd`
 
 all:

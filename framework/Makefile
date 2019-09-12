@@ -67,6 +67,7 @@ default $(DRV_NAME).ko:
 	$(MAKE) -C ${INCLUDE} SUBDIRS=`pwd` modules
 	mkdir -p $(DRIVER_DIR)
 	cp $(DRV_NAME).ko $(DRIVER_DIR)/$(DRV_NAME)_$(KERNEL_VER).ko
+	cp Module.symvers ../driver/
 
 install: $(DRV_NAME).ko
 	install -D -m 644 $(DRV_NAME).ko \
