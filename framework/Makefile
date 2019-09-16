@@ -41,17 +41,17 @@
 # Comment out the following line to avoid logging debugging messages
 # The DEBUG macros should only be used during development
 #
-# CFLAGS += -DDEBUG 
+# ccflags-y += -DDEBUG 
 
-CFLAGS += -DLINUX
-CFLAGS += -D_KERNEL
+ccflags-y += -DLINUX
+ccflags-y += -D_KERNEL
 
 #
 # Note that Wall ahead of others
 #
-CFLAGS += -Wall
-CFLAGS += -Wno-unknown-pragmas
-CFLAGS += -Wno-unused
+ccflags-y += -Wall
+ccflags-y += -Wno-unknown-pragmas
+ccflags-y += -Wno-unused
 
 DRV_NAME	= scaf
 KERNEL_VER	?= `uname -r`

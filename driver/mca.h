@@ -71,6 +71,8 @@
 #include <sys/fm/protocol.h>
 #endif
 
+#include "../work_ex.h"
+
 #ifdef	__cplusplus
 extern "C" {
 #endif
@@ -466,7 +468,7 @@ typedef mca_channel_t mca_app_handle_t;
 struct mca_request {
 #ifdef LINUX
 	/* This needs to be on the first line */
-	struct work_struct	taskq;
+	struct work_ex_struct	taskq;
 #endif
 	mca_listnode_t		mr_linkage;
 	crypto_req_handle_t	*mr_cf_req;
@@ -1029,7 +1031,7 @@ typedef struct {
 struct mca {
 #ifdef LINUX
 	/* This needs to be on the first line */
-	struct work_struct	taskq;
+	struct work_ex_struct	taskq;
 #endif
 	dev_info_t		*mca_dip;
 	int			mca_refcnt;

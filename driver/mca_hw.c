@@ -100,7 +100,7 @@ static int mca_boottime = 30 * SECOND;
 #define	MAX_NUM_WORK_WRAP	10
 
 typedef struct work_wrap_ {
-	struct work_struct	taskq;
+	struct work_ex_struct	taskq;
 	mca_t			*mca;
 	int			inuse;
 } work_wrap_t;

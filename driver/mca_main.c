@@ -52,6 +52,7 @@
 #include <linux/pci.h>
 #include <linux/interrupt.h>
 #include <linux/moduleparam.h>
+#include <linux/version.h>
 #include <asm/uaccess.h>
 #include <asm/atomic.h>
 #include "sol2lin.h"
@@ -92,6 +93,16 @@
 #include <sys/mca_attr_infobase.h>
 #include <sys/mca_fs_internal.h>
 #endif
+
+
+#ifndef DMA_64BIT_MASK
+#define DMA_64BIT_MASK  0xffffffffffffffffULL
+#endif
+
+#ifndef DMA_32BIT_MASK
+#define DMA_32BIT_MASK  0x00000000ffffffffULL
+#endif
+
 
 /* To display copyright in the object or executable files */
 char copywrite[] = "Copyright 2007 Sun Microsystems, Inc. "
@@ -531,8 +542,13 @@ _init(void)
 		/*
 		 * Find the device in the system's PCI structure and enable it
 		 */
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(2,6,10))
 		mca_devices[i]->device = pci_find_device(MCA_VENDOR_ID,
 		    MCA_DEVICE_ID, mca_device_tmp);
+#else
+		mca_devices[i]->device = pci_get_device(MCA_VENDOR_ID,
+		    MCA_DEVICE_ID, mca_device_tmp);
+#endif
 
 		if ((mca_device_tmp = mca_devices[i]->device) == NULL) {
 			kfree(mca_devices[i]);

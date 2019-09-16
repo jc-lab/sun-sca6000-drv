@@ -45,6 +45,7 @@
 #include <linux/types.h>
 #include <linux/slab.h>
 #include <linux/time.h>
+#include <linux/sched.h>
 #include <linux/wait.h>
 #include <linux/kmod.h>
 #include <linux/delay.h>
@@ -67,8 +68,13 @@
 char copywrite[] = "Copyright 2006 Sun Microsystems, Inc. "
 	"All rights reserved. Use is subject to license terms.";
 
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(2,6,36))
 static int sca_ioctl(struct inode *inode, struct file *filp, unsigned int cmd,
     unsigned long arg);
+#else
+static int sca_ioctl_unlocked(struct file *filp, unsigned int cmd,
+    unsigned long arg);
+#endif
 static int sca_open(struct inode *inode, struct file *filp);
 static int sca_release(struct inode *inode, struct file *filp);
 #if (LINUX_VERSION_CODE > KERNEL_VERSION(2,6,9))
@@ -485,7 +491,11 @@ module_param(sca_hide_hardware_provider, int, S_IRUGO);
 /* This struct indicates which standard device functions are supported */
 static struct file_operations g_sca_fops =
 {
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(2,6,36))
 	ioctl:		sca_ioctl,
+#else
+	unlocked_ioctl:	sca_ioctl_unlocked,
+#endif
 #if (LINUX_VERSION_CODE > KERNEL_VERSION(2,6,9))
 	compat_ioctl:	sca_ioctl_compat,
 #endif
@@ -4142,7 +4152,11 @@ release_job:
 static long
 sca_ioctl_compat(struct file *filp, unsigned int cmd, unsigned long arg)
 {
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(2,6,36))
 	return (sca_ioctl(NULL, filp, cmd, arg));
+#else
+	return (sca_ioctl_unlocked(filp, cmd, arg));
+#endif
 }
 #endif
 
@@ -4362,6 +4376,20 @@ sca_ioctl(struct inode *inode, struct file *filp, unsigned int cmd,
 
 	return (EINVAL);
 }
+
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,36))
+static DEFINE_MUTEX(sca_mutex);
+static int
+sca_ioctl_unlocked(struct file *filp, unsigned int cmd,
+    unsigned long arg)
+{
+	int rc;
+	mutex_lock(&sca_mutex);
+	rc = sca_ioctl(NULL, filp, cmd, arg);
+	mutex_unlock(&sca_mutex);
+	return rc;
+}
+#endif
 
 /*
  * ASSUMPTION: crypto_sign_update and crypto_verify_update structures

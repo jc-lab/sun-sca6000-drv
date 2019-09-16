@@ -37,6 +37,7 @@
 
 #pragma ident	"@(#)sol2lin.h	1.38	08/08/11 SMI"
 
+#include <linux/sched.h>
 #include <linux/spinlock.h>
 #include <linux/wait.h>
 #include <linux/slab.h>
@@ -47,11 +48,22 @@
 #include <linux/delay.h>
 #include <linux/random.h>
 #include <linux/dma-mapping.h>
+#include <linux/seq_file.h>
+#include <linux/version.h>
 #include <asm/uaccess.h>
+
+#include "../work_ex.h"
 
 #ifdef	__cplusplus
 extern "C" {
 #endif
+
+#define SPIN_LOCK_UNLOCKED	__SPIN_LOCK_UNLOCKED(old_style_spin_init)
+#define RW_LOCK_UNLOCKED	__RW_LOCK_UNLOCKED(old_style_rw_init)
+
+#define DEFINE_SPINLOCK(x)	spinlock_t x = __SPIN_LOCK_UNLOCKED(x)
+#define DEFINE_RWLOCK(x)	rwlock_t x = __RW_LOCK_UNLOCKED(x)
+
 
 #ifdef _BIG_ENDIAN
 #define	BE_64(x)		(x)
@@ -1019,7 +1031,7 @@ static inline int ddi_add_intr(dev_info_t *dip, uint_t inumber,
 	 * It is passed in as the dev_id.
 	 */
 	if (request_irq(dip->device->irq, (void *)int_handler,
-	    SA_SHIRQ, MCA_DRIVER_TEXT_NAME, int_handler_arg)) {
+	    IRQF_SHARED, MCA_DRIVER_TEXT_NAME, int_handler_arg)) {
 		SCA_ERR_PRINT("ddi_add_intr: request_irq failed on: %d\n",
 		dip->device->irq);
 		return (DDI_FAILURE);
@@ -1161,6 +1173,34 @@ static inline void  kstat_named_init(kstat_named_t   *knp,   char   *name,
 	}
 }
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,10,0)
+static int kstat_show(struct seq_file *seq, void *v) {
+	kstat_t *ksp = (kstat_t*)v;
+	char buffer[2048];
+	char *start = buffer;
+	int eof = 0;
+	ksp->ks_update(buffer, &start, 0, 2048, &eof, ksp->ks_private);
+	seq_puts(seq, start);
+	return 0;
+
+}
+static int kstat_open(struct inode *inode, struct file *file)
+{
+	#if LINUX_VERSION_CODE < KERNEL_VERSION(3,10,0)
+		kstat_t *ksp = (kstat_t*)PDE(inode)->data;
+	#endif
+	#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,10,0)
+		kstat_t *ksp = PDE_DATA(inode);
+	#endif
+	return single_open(file, kstat_show, ksp);
+}
+static struct file_operations kstat_fops = {
+	.open		= kstat_open,
+	.read		= seq_read,
+	.llseek		= seq_lseek,
+	.release	= single_release,
+};
+#endif
 static inline void kstat_install(kstat_t *ksp)
 {
 	char dir[64];
@@ -1169,8 +1209,12 @@ static inline void kstat_install(kstat_t *ksp)
 	if (ksp->ks_type == KSTAT_TYPE_NAMED) {
 		sprintf(dir, "driver/%s%d", MCA_DRIVER_TEXT_NAME,
 		    ksp->ks_instance);
+#if LINUX_VERSION_CODE < KERNEL_VERSION(3,10,0)
 		create_proc_read_entry(dir, 0, NULL, ksp->ks_update,
 		    ksp->ks_private);
+#else
+		proc_create_data(dir, 0, NULL, &kstat_fops, ksp);
+#endif
 	}
 }
 
@@ -1411,7 +1455,7 @@ static inline int ddi_dma_addr_bind_handle(ddi_dma_handle_t handle,
 				    handle->sglist[i].page,
 				    handle->sglist[i].length,
 				    handle->direction);
-				if (dma_mapping_error(
+				if (dma_mapping_error(&(handle->pdev->dev), 
 				    handle->sglist[i].dma_addr)) {
 					return (DDI_FAILURE);
 				}
@@ -1437,7 +1481,7 @@ static inline int ddi_dma_addr_bind_handle(ddi_dma_handle_t handle,
 			    dma_map_single(&(handle->pdev->dev), addr,
 			    len, handle->direction);
 
-			if (dma_mapping_error(handle->bus_addr)) {
+			if (dma_mapping_error(&(handle->pdev->dev), handle->bus_addr)) {
 				return (DDI_FAILURE);
 			}
 
@@ -1471,7 +1515,7 @@ static inline int ddi_dma_unbind_handle(ddi_dma_handle_t handle)
 			 * The memory will be freed in either ddi_dma_mem_free()
 			 * or in user functions using kfree().
 			 */
-			if (dma_mapping_error(handle->bus_addr) == 0) {
+			if (dma_mapping_error(&(handle->pdev->dev), handle->bus_addr) == 0) {
 				dma_unmap_single(&(handle->pdev->dev),
 				    handle->bus_addr,
 				    handle->size, handle->direction);
@@ -1479,7 +1523,7 @@ static inline int ddi_dma_unbind_handle(ddi_dma_handle_t handle)
 		} else {
 			int	i;
 			for (i = 0; i < handle->n_pages; i++) {
-				if (dma_mapping_error(
+				if (dma_mapping_error(&(handle->pdev->dev), 
 				    handle->sglist[i].dma_addr) == 0) {
 					dma_unmap_single(&(handle->pdev->dev),
 					    handle->sglist[i].dma_addr,
@@ -1742,18 +1786,26 @@ static inline void ddi_taskq_destroy(ddi_taskq_t *tq)
 	destroy_workqueue(tq);
 }
 
+static void task_work_invoker(struct work_struct *work) {
+	work_ex_t* head = (work_ex_t*)work;
+	(*head->cb)((void*)work);
+}
+
 static inline taskqid_t ddi_taskq_dispatch(ddi_taskq_t *tq, task_func_t func,
     void * arg, uint_t flags)
 {
 	struct work_struct *work;
+	work_ex_t *head = (work_ex_t*)arg;
 	/*
 	 * The arg parameter is either mca_t or request_t.
 	 * The first entry is a struct work_struct type field.
 	 */
 	work = (struct work_struct *)arg;
-
+	
+	head->cb = func;
+	
 	/* Init the workqueue with the function and the argument */
-	INIT_WORK(work, ((void(*)(void *))func), (void *)arg);
+	INIT_WORK(work, task_work_invoker);
 
 	/* Schedule the work */
 	queue_work(tq, work);

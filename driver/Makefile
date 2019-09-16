@@ -43,19 +43,19 @@ PERL=/usr/bin/perl
 # Comment out the following line to avoid logging debugging messages
 # The DEBUG macros should only be used during development
 #
-# CFLAGS += -DDEBUG
+# ccflags-y += -DDEBUG
 
-CFLAGS += -DLINUX
-CFLAGS += -D_KERNEL
+ccflags-y += -DLINUX
+ccflags-y += -D_KERNEL
 
 #
 # Note that Wall has to be ahead of other warnings
 #
-CFLAGS += -Wall
-CFLAGS += -Wno-unknown-pragmas
-CFLAGS += -Wno-unused
-CFLAGS += -Wno-missing-braces
-CFLAGS += -std=gnu99
+ccflags-y += -Wall
+ccflags-y += -Wno-unknown-pragmas
+ccflags-y += -Wno-unused
+ccflags-y += -Wno-missing-braces
+ccflags-y += -std=gnu99
 
 DRV_NAME	= mca
 MCACTL_NAME	= mcactl
@@ -64,7 +64,7 @@ BIN_DIR		= $(DESTDIR)/opt/sun/sca6000/bin
 DRV_DIR		= drv
 
 # Use this to add additional include dirs to kernel module builds
-CPPFLAGS +=	-I$(TOP)/driver
+ccflags-y +=	-I$(TOP)/driver
 
 INCLUDE := /lib/modules/$(KERNEL_VER)/build/
 obj-m   := $(DRV_NAME).o $(MCACTL_NAME).o

@@ -52,6 +52,8 @@
 #include <linux/pci.h>
 #include <linux/interrupt.h>
 #include <linux/moduleparam.h>
+#include <linux/mutex.h>
+#include <linux/version.h>
 #include "sol2lin.h"
 #include "mca_table.h"
 #include "mca.h"
@@ -150,15 +152,23 @@ static struct ddi_device_acc_attr dev_buf_attr = {
 
 static int mcactl_open_lin(struct inode *inode, struct file *filp);
 static int mcactl_close_lin(struct inode *inode, struct file *filp);
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(2,6,36))
 static int mcactl_ioctl_lin(struct inode *inode, struct file *filp,
     unsigned int cmd, unsigned long arg);
+#else
+static int mcactl_ioctl_lin_unlocked(struct file *filp, unsigned int cmd, unsigned long arg);
+#endif
 
 static int	g_mcactl_major_number = 0;
 
 /* This struct indicates which standard device functions are supported */
 static struct file_operations g_mcactl_fops =
 {
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(2,6,36))
 	ioctl:		mcactl_ioctl_lin,
+#else
+	unlocked_ioctl:	mcactl_ioctl_lin_unlocked,
+#endif
 	open:		mcactl_open_lin,
 	release:	mcactl_close_lin,
 	owner:		THIS_MODULE
@@ -247,6 +257,15 @@ mcactl_ioctl_lin(struct inode *inode, struct file *filp, unsigned int cmd,
 	dev_t dev = (dev_t)tmp;
 	return (-mcactl_ioctl(dev, cmd, arg, 0, NULL, &rval));
 }
+
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,36))
+static int
+mcactl_ioctl_lin_unlocked(struct file *filp, unsigned int cmd, unsigned long arg)
+{
+	// Already mcactl_ioctl_lin is thread-safe
+	return mcactl_ioctl_lin(NULL, filp, cmd, arg);
+}
+#endif
 
 #else /* LINUX */
 
